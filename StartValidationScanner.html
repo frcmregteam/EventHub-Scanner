@@ -30,16 +30,48 @@
     <title>QR Scanner</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
+        :root {
+            /* Light Mode Defaults */
+            --bg-main: #f1f5f9;        /* Page background */
+            --bg-surface: #ffffff;     /* Cards, Camera wrapper */
+            --bg-surface-muted: #f8fafc; /* Inputs, Topbar */
+            --text-main: #0f172a;      /* Primary text */
+            --text-muted: #64748b;     /* Subtitles, hints */
+            --border-color: #e2e8f0;   /* Dividers, borders */
+            --primary: #2ecc71;
+            --primary-hover: #27ae60;
+            --success: #16a34a;
+            --danger: #dc2626;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark Mode Overrides */
+                --bg-main: #0f172a;
+                --bg-surface: #1e293b;
+                --bg-surface-muted: #0f172a;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --border-color: #334155;
+                --primary: #2ecc71;
+                --primary-hover: #27ae60;
+                --success: #4ade80;
+                --danger: #f87171;
+            }
+        }
+
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         html, body {
             margin: 0;
             padding: 0;
-            min-height: 100vh;
+            height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0f172a;
-            color: #f8fafc;
-            overflow-x: hidden;
+            background: var(--bg-main);
+            color: var(--text-main);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         /* ── TOP BAR ──────────────────────────────────────────── */
@@ -47,8 +79,8 @@
             position: sticky;
             top: 0;
             z-index: 30;
-            background: #0f172a;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-color);
             padding: 10px 14px;
             display: flex;
             align-items: center;
@@ -67,7 +99,7 @@
         .topbar .session-info .title {
             font-size: 14px;
             font-weight: 700;
-            color: #f8fafc;
+            color: var(--text-main);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -75,7 +107,7 @@
 
         .topbar .session-info .meta {
             font-size: 11px;
-            color: #94a3b8;
+            color: var(--text-muted);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -83,7 +115,7 @@
 
         .topbar .end-btn {
             background: rgba(220, 38, 38, 0.12);
-            color: #f87171;
+            color: var(--danger);
             border: 1px solid rgba(220, 38, 38, 0.4);
             border-radius: 8px;
             padding: 8px 14px;
@@ -108,22 +140,22 @@
             align-items: center;
             gap: 8px;
             padding: 8px 14px;
-            background: #1e293b;
+            background: var(--bg-surface);
             border-radius: 10px;
             margin: 10px 14px;
             font-size: 12px;
-            border: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid var(--border-color);
         }
 
         .mode-pill.checkin i { color: #2563eb; }
-        .mode-pill.food i    { color: #16a34a; }
+        .mode-pill.food i    { color: var(--success); }
 
         .mode-pill .label {
-            color: #94a3b8;
+            color: var(--text-muted);
         }
 
         .mode-pill .value {
-            color: #f8fafc;
+            color: var(--text-main);
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -131,7 +163,7 @@
 
         .mode-pill .batch {
             margin-left: auto;
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 11px;
         }
 
@@ -157,7 +189,7 @@
             position: absolute;
             width: 64%;
             aspect-ratio: 1;
-            border: 3px solid #2ecc71;
+            border: 3px solid var(--primary);
             border-radius: 14px;
             top: 50%;
             left: 50%;
@@ -196,7 +228,7 @@
 
         .camera-start-btn i {
             font-size: 44px;
-            color: #2ecc71;
+            color: var(--primary);
         }
 
         .camera-start-btn span {
@@ -244,10 +276,10 @@
         /* ── MANUAL ENTRY ─────────────────────────────────────── */
         .manual-section {
             margin: 14px;
-            background: #1e293b;
+            background: var(--bg-surface);
             border-radius: 14px;
             padding: 14px;
-            border: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid var(--border-color);
         }
 
         .manual-section .section-title {
@@ -255,7 +287,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #94a3b8;
+            color: var(--text-muted);
             margin-bottom: 10px;
             display: flex;
             align-items: center;
@@ -271,10 +303,10 @@
             flex: 1;
             min-height: 60px;
             padding: 10px 12px;
-            background: #0f172a;
-            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--bg-surface-muted);
+            border: 1px solid var(--border-color);
             border-radius: 10px;
-            color: #f8fafc;
+            color: var(--text-main);
             font-family: 'Courier New', monospace;
             font-size: 13px;
             resize: vertical;
@@ -283,15 +315,15 @@
         }
 
         .manual-row textarea:focus {
-            border-color: #2ecc71;
+            border-color: var(--primary);
         }
 
         .manual-row textarea::placeholder {
-            color: #475569;
+            color: var(--text-muted);
         }
 
         .manual-submit {
-            background: #2ecc71;
+            background: var(--primary);
             color: #ffffff;
             border: none;
             border-radius: 10px;
@@ -309,7 +341,7 @@
         }
 
         .manual-submit:hover:not(:disabled) {
-            background: #27ae60;
+            background: var(--primary-hover);
         }
 
         .manual-submit:disabled {
@@ -320,17 +352,21 @@
         .manual-hint {
             margin-top: 8px;
             font-size: 11px;
-            color: #64748b;
+            color: var(--text-muted);
             line-height: 1.5;
         }
 
         /* ── SESSION LOG ──────────────────────────────────────── */
         .log-section {
             margin: 0 14px 14px;
-            background: #1e293b;
+            background: var(--bg-surface);
             border-radius: 14px;
             padding: 14px;
-            border: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid var(--border-color);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; 
         }
 
         .log-header {
@@ -346,7 +382,7 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #94a3b8;
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             gap: 6px;
@@ -360,17 +396,17 @@
         }
 
         .log-header .summary .ok {
-            color: #4ade80;
+            color: var(--success);
             font-weight: 700;
         }
 
         .log-header .summary .bad {
-            color: #f87171;
+            color: var(--danger);
             font-weight: 700;
         }
 
         .log-header .chevron {
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 12px;
             transition: transform 0.2s;
         }
@@ -382,17 +418,16 @@
         .log-body {
             display: none;
             margin-top: 12px;
-            max-height: 220px;
+            flex: 1;
             overflow-y: auto;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--border-color);
         }
-
         .log-body.open { display: block; }
 
         .log-empty {
             padding: 16px 0;
             text-align: center;
-            color: #64748b;
+            color: var(--text-muted);
             font-size: 12px;
             font-style: italic;
         }
@@ -402,7 +437,7 @@
             align-items: flex-start;
             gap: 10px;
             padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            border-bottom: 1px solid var(--border-color);
             font-size: 12px;
             line-height: 1.4;
         }
@@ -417,13 +452,13 @@
             padding-top: 1px;
         }
 
-        .log-entry.ok .icon  { color: #4ade80; }
-        .log-entry.bad .icon { color: #f87171; }
+        .log-entry.ok .icon  { color: var(--success); }
+        .log-entry.bad .icon { color: var(--danger); }
 
         .log-entry .content { flex: 1; min-width: 0; }
 
         .log-entry .name {
-            color: #f8fafc;
+            color: var(--text-main);
             font-weight: 600;
             white-space: nowrap;
             overflow: hidden;
@@ -431,16 +466,46 @@
         }
 
         .log-entry .reason {
-            color: #94a3b8;
+            color: var(--text-muted);
             font-size: 11px;
             margin-top: 1px;
         }
 
         .log-entry .time {
-            color: #475569;
+            color: var(--text-muted);
             font-size: 10px;
             flex-shrink: 0;
             padding-top: 2px;
+        }
+
+        .log-pagination {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-color);
+            margin-top: 10px;
+        }
+        .log-pagination.open { display: flex; }
+        
+        .log-page-btn {
+            background: var(--bg-surface-muted);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+        }
+        .log-page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .log-page-info {
+            font-size: 12px;
+            color: var(--text-muted);
         }
 
         /* ── RESULT BANNER ────────────────────────────────────── */
@@ -468,19 +533,19 @@
         }
 
         .result-card {
-            background: #ffffff;
+            background: var(--bg-surface);
             border-radius: 20px;
             padding: 32px 24px;
             max-width: 420px;
             width: 100%;
             text-align: center;
-            color: #0f172a;
+            color: var(--text-main);
             box-shadow: 0 30px 80px rgba(0,0,0,0.5);
-            border-top: 8px solid #64748b;
+            border-top: 8px solid var(--text-muted);
         }
 
-        .result-card.approved { border-top-color: #16a34a; }
-        .result-card.rejected { border-top-color: #dc2626; }
+        .result-card.approved { border-top-color: var(--success); }
+        .result-card.rejected { border-top-color: var(--danger); }
 
         .result-card .icon {
             font-size: 64px;
@@ -488,8 +553,8 @@
             line-height: 1;
         }
 
-        .result-card.approved .icon { color: #16a34a; }
-        .result-card.rejected .icon { color: #dc2626; }
+        .result-card.approved .icon { color: var(--success); }
+        .result-card.rejected .icon { color: var(--danger); }
 
         .result-card .title {
             font-size: 24px;
@@ -498,20 +563,20 @@
             margin-bottom: 8px;
         }
 
-        .result-card.approved .title { color: #16a34a; }
-        .result-card.rejected .title { color: #dc2626; }
+        .result-card.approved .title { color: var(--success); }
+        .result-card.rejected .title { color: var(--danger); }
 
         .result-card .name {
             font-size: 20px;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--text-main);
             margin-bottom: 6px;
             line-height: 1.3;
         }
 
         .result-card .detail {
             font-size: 14px;
-            color: #64748b;
+            color: var(--text-muted);
             line-height: 1.5;
         }
 
@@ -524,7 +589,7 @@
         .result-card .batch-count {
             font-size: 16px;
             font-weight: 700;
-            color: #0f172a;
+            color: var(--text-main);
             margin-top: 4px;
             margin-bottom: 12px;
         }
@@ -539,8 +604,8 @@
         .result-card .batch-group {
             padding: 10px 14px;
             margin-bottom: 8px;
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.2);
             border-radius: 10px;
         }
 
@@ -552,7 +617,7 @@
         .result-card .batch-group-reason {
             font-size: 13px;
             font-weight: 700;
-            color: #991b1b;
+            color: var(--danger);
             margin-bottom: 6px;
             line-height: 1.3;
         }
@@ -561,21 +626,21 @@
         .result-card .batch-group-codes {
             font-family: 'Courier New', monospace;
             font-size: 13px;
-            color: #7f1d1d;
+            color: var(--text-main);
             line-height: 1.6;
             word-break: break-word;
             letter-spacing: 0.3px;
         }
 
         /* Count-line colour by outcome */
-        .result-card.approved .batch-count { color: #16a34a; }
-        .result-card.rejected .batch-count { color: #dc2626; }
+        .result-card.approved .batch-count { color: var(--success); }
+        .result-card.rejected .batch-count { color: var(--danger); }
 
         /* ── FULLSCREEN ERROR ─────────────────────────────────── */
         .fatal-error {
             position: fixed;
             inset: 0;
-            background: #0f172a;
+            background: var(--bg-main);
             display: none;
             align-items: center;
             justify-content: center;
@@ -588,27 +653,27 @@
         .fatal-error .box {
             max-width: 420px;
             width: 100%;
-            background: #1e293b;
+            background: var(--bg-surface);
             border-radius: 16px;
             padding: 32px 24px;
             text-align: center;
-            border: 1px solid rgba(220, 38, 38, 0.3);
+            border: 1px solid var(--danger);
         }
 
         .fatal-error .box i {
             font-size: 48px;
-            color: #dc2626;
+            color: var(--danger);
             margin-bottom: 16px;
         }
 
         .fatal-error .box h2 {
             font-size: 20px;
             margin: 0 0 8px;
-            color: #f8fafc;
+            color: var(--text-main);
         }
 
         .fatal-error .box p {
-            color: #94a3b8;
+            color: var(--text-muted);
             font-size: 14px;
             line-height: 1.5;
             margin: 0 0 20px;
@@ -616,7 +681,7 @@
 
         .fatal-error .box button {
             padding: 12px 24px;
-            background: #dc2626;
+            background: var(--danger);
             color: white;
             border: none;
             border-radius: 10px;
@@ -705,8 +770,20 @@
                 <i class="fas fa-chevron-down chevron" id="logChevron"></i>
             </div>
         </div>
+        
         <div class="log-body" id="logBody">
-            <div class="log-empty" id="logEmpty">No scans yet this session.</div>
+            <!-- Entries go here -->
+        </div>
+
+        <!-- NEW: Prev / Next Pagination -->
+        <div class="log-pagination" id="logPagination">
+            <button class="log-page-btn" id="btnPrevPage" onclick="changeLogPage(-1)" disabled>
+                <i class="fas fa-chevron-left"></i> Prev
+            </button>
+            <div class="log-page-info" id="logPageInfo">Page 1</div>
+            <button class="log-page-btn" id="btnNextPage" onclick="changeLogPage(1)" disabled>
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
     </div>
 
@@ -767,6 +844,8 @@
         log:        [],
         okCount:    0,
         badCount:   0,
+        logPage: 1,
+        logPageSize: 10,
 
         // Timers
         resultPollTimer: null,
@@ -1822,8 +1901,11 @@
         var nameEl  = document.getElementById('resultName');
         var detail  = document.getElementById('resultDetail');
 
-        var approved = results.filter(function(r) { return r.success; }).length;
-        var rejected = results.length - approved;
+        var approvedResults = results.filter(function(r) { return r.success; });
+        var rejectedResults = results.filter(function(r) { return !r.success; });
+        
+        var approved = approvedResults.length;
+        var rejected = rejectedResults.length;
 
         // ── Card variant ──
         var variant = 'mixed';
@@ -1842,13 +1924,16 @@
         var countText = approved + ' approved';
         if (rejected > 0) countText += ' · ' + rejected + ' rejected';
 
+        // ── Build approved names list ──
+        var approvedNames = approvedResults.map(function(r) {
+            return r.name || r._inputCode || '(unknown)';
+        });
+
         // ── Build rejection groups ──
         var groups = [];
         var groupIndex = {};
 
-        results.forEach(function(r) {
-            if (r.success) return;
-
+        rejectedResults.forEach(function(r) {
             var reason = trimReason(r.message);
             var code = r._inputCode || '(unknown)';
 
@@ -1864,6 +1949,15 @@
         var html = '';
         html += '<div class="batch-count">' + escapeHtml(countText) + '</div>';
 
+        // 1. Show the names of the approved people (Theme-aware Green Box)
+        if (approvedNames.length > 0) {
+            html += '<div style="margin-top: 12px; margin-bottom: 16px; padding: 10px; background: rgba(22, 163, 74, 0.1); border-radius: 8px; border: 1px solid rgba(22, 163, 74, 0.3); text-align: left;">';
+            html += '<div style="font-size: 12px; font-weight: 700; color: var(--success); margin-bottom: 4px;"><i class="fas fa-check-circle"></i> Checked In:</div>';
+            html += '<div style="font-size: 14px; color: var(--text-main); font-weight: 600; line-height: 1.5;">' + escapeHtml(approvedNames.join(', ')) + '</div>';
+            html += '</div>';
+        }
+
+        // 2. Show the rejections (Theme-aware Red Boxes)
         if (groups.length > 0) {
             html += '<div class="batch-groups">';
             groups.forEach(function(g) {
@@ -1927,6 +2021,9 @@
             if (result.success) S.okCount++; else S.badCount++;
         });
 
+        // Jump to page 1 so the officer sees the brand new scan
+        S.logPage = 1; 
+
         // Re-render the UI
         renderLog();
     }
@@ -1988,20 +2085,35 @@
 
     function renderLog() {
         var body = document.getElementById('logBody');
-        var empty = document.getElementById('logEmpty');
         var okEl = document.getElementById('logOk');
         var badEl = document.getElementById('logBad');
+        var btnPrev = document.getElementById('btnPrevPage');
+        var btnNext = document.getElementById('btnNextPage');
+        var pageInfo = document.getElementById('logPageInfo');
 
         okEl.textContent = S.okCount;
         badEl.textContent = S.badCount;
 
         if (S.log.length === 0) {
             body.innerHTML = '<div class="log-empty" id="logEmpty">No scans yet this session.</div>';
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+            pageInfo.textContent = 'Page 1';
             return;
         }
 
+        // Calculate pagination
+        var totalPages = Math.ceil(S.log.length / S.logPageSize);
+        if (S.logPage > totalPages) S.logPage = totalPages;
+        if (S.logPage < 1) S.logPage = 1;
+
+        var startIdx = (S.logPage - 1) * S.logPageSize;
+        var endIdx = startIdx + S.logPageSize;
+        var pageItems = S.log.slice(startIdx, endIdx);
+
+        // Render items
         var html = '';
-        S.log.forEach(function(e) {
+        pageItems.forEach(function(e) {
             var cls = e.success ? 'ok' : 'bad';
             var iconCls = e.success ? 'fa-check-circle' : 'fa-times-circle';
             var reasonParts = [];
@@ -2020,13 +2132,26 @@
                 '</div>';
         });
         body.innerHTML = html;
+
+        // Update Pagination Buttons
+        btnPrev.disabled = (S.logPage === 1);
+        btnNext.disabled = (S.logPage === totalPages);
+        pageInfo.textContent = 'Page ' + S.logPage + ' of ' + totalPages;
     }
 
     function toggleLog() {
         var header = document.getElementById('logHeader');
         var body = document.getElementById('logBody');
+        var pagination = document.getElementById('logPagination');
+        
         header.classList.toggle('open');
         body.classList.toggle('open');
+        pagination.classList.toggle('open');
+    }
+
+    function changeLogPage(delta) {
+        S.logPage += delta;
+        renderLog();
     }
 
     function fmtTime(iso) {
