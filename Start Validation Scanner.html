@@ -1,0 +1,2135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="permissions-policy" content="camera=*">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- ============================================================
+         SECURITY HEADERS
+         ============================================================ -->
+
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+        font-src https://cdnjs.cloudflare.com;
+        img-src 'self' data:;
+        connect-src 'self' https://script.google.com https://script.googleusercontent.com;
+        base-uri 'self';
+        form-action 'self' https://script.google.com;
+        object-src 'none';
+        upgrade-insecure-requests;
+    ">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+
+    <title>QR Scanner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* ── TOP BAR ──────────────────────────────────────────── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .topbar .session-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .topbar .session-info .title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .topbar .session-info .meta {
+            font-size: 11px;
+            color: #94a3b8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .topbar .end-btn {
+            background: rgba(220, 38, 38, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(220, 38, 38, 0.4);
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .topbar .end-btn:hover {
+            background: rgba(220, 38, 38, 0.2);
+        }
+
+        /* ── MODE PILL ────────────────────────────────────────── */
+        .mode-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #1e293b;
+            border-radius: 10px;
+            margin: 10px 14px;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .mode-pill.checkin i { color: #2563eb; }
+        .mode-pill.food i    { color: #16a34a; }
+
+        .mode-pill .label {
+            color: #94a3b8;
+        }
+
+        .mode-pill .value {
+            color: #f8fafc;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-pill .batch {
+            margin-left: auto;
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        /* ── CAMERA ───────────────────────────────────────────── */
+        .camera-wrap {
+            position: relative;
+            margin: 0 14px;
+            border-radius: 14px;
+            overflow: hidden;
+            background: #000;
+            aspect-ratio: 4 / 3;
+            max-height: 56vh;
+        }
+
+        #qr-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .scan-frame {
+            position: absolute;
+            width: 64%;
+            aspect-ratio: 1;
+            border: 3px solid #2ecc71;
+            border-radius: 14px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
+        }
+
+        .camera-status {
+            position: absolute;
+            left: 10px;
+            bottom: 10px;
+            padding: 6px 12px;
+            background: rgba(15, 23, 42, 0.85);
+            border-radius: 9999px;
+            font-size: 11px;
+            color: #cbd5e1;
+            backdrop-filter: blur(8px);
+            max-width: calc(100% - 20px);
+        }
+
+        .camera-start-btn {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #f8fafc;
+            cursor: pointer;
+            border: none;
+            font-family: inherit;
+        }
+
+        .camera-start-btn i {
+            font-size: 44px;
+            color: #2ecc71;
+        }
+
+        .camera-start-btn span {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .camera-start-btn small {
+            font-size: 12px;
+            color: #94a3b8;
+            padding: 0 24px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .camera-stop-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(15, 23, 42, 0.85);
+            color: #f8fafc;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .camera-stop-btn:hover {
+            background: rgba(220, 38, 38, 0.85);
+            border-color: rgba(220, 38, 38, 0.5);
+        }
+
+        .camera-wrap.camera-on .camera-stop-btn {
+            display: inline-flex;
+        }
+
+        /* ── MANUAL ENTRY ─────────────────────────────────────── */
+        .manual-section {
+            margin: 14px;
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .manual-section .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .manual-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .manual-row textarea {
+            flex: 1;
+            min-height: 60px;
+            padding: 10px 12px;
+            background: #0f172a;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: #f8fafc;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .manual-row textarea:focus {
+            border-color: #2ecc71;
+        }
+
+        .manual-row textarea::placeholder {
+            color: #475569;
+        }
+
+        .manual-submit {
+            background: #2ecc71;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            padding: 0 18px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 90px;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .manual-submit:hover:not(:disabled) {
+            background: #27ae60;
+        }
+
+        .manual-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .manual-hint {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        /* ── SESSION LOG ──────────────────────────────────────── */
+        .log-section {
+            margin: 0 14px 14px;
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .log-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .log-header .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .log-header .summary {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .log-header .summary .ok {
+            color: #4ade80;
+            font-weight: 700;
+        }
+
+        .log-header .summary .bad {
+            color: #f87171;
+            font-weight: 700;
+        }
+
+        .log-header .chevron {
+            color: #64748b;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .log-header.open .chevron {
+            transform: rotate(180deg);
+        }
+
+        .log-body {
+            display: none;
+            margin-top: 12px;
+            max-height: 220px;
+            overflow-y: auto;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .log-body.open { display: block; }
+
+        .log-empty {
+            padding: 16px 0;
+            text-align: center;
+            color: #64748b;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .log-entry:last-child { border-bottom: none; }
+
+        .log-entry .icon {
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+            font-size: 12px;
+            padding-top: 1px;
+        }
+
+        .log-entry.ok .icon  { color: #4ade80; }
+        .log-entry.bad .icon { color: #f87171; }
+
+        .log-entry .content { flex: 1; min-width: 0; }
+
+        .log-entry .name {
+            color: #f8fafc;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .log-entry .reason {
+            color: #94a3b8;
+            font-size: 11px;
+            margin-top: 1px;
+        }
+
+        .log-entry .time {
+            color: #475569;
+            font-size: 10px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        /* ── RESULT BANNER ────────────────────────────────────── */
+        .result-banner {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .result-banner.show {
+            display: flex;
+            animation: bannerIn 0.18s ease;
+        }
+
+        @keyframes bannerIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .result-card {
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 32px 24px;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            color: #0f172a;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+            border-top: 8px solid #64748b;
+        }
+
+        .result-card.approved { border-top-color: #16a34a; }
+        .result-card.rejected { border-top-color: #dc2626; }
+
+        .result-card .icon {
+            font-size: 64px;
+            margin-bottom: 12px;
+            line-height: 1;
+        }
+
+        .result-card.approved .icon { color: #16a34a; }
+        .result-card.rejected .icon { color: #dc2626; }
+
+        .result-card .title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+        }
+
+        .result-card.approved .title { color: #16a34a; }
+        .result-card.rejected .title { color: #dc2626; }
+
+        .result-card .name {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        .result-card .detail {
+            font-size: 14px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        /* Batch summary — mixed-outcome border */
+        .result-card.mixed { border-top-color: #f59e0b; }
+        .result-card.mixed .icon { color: #f59e0b; }
+        .result-card.mixed .title { color: #f59e0b; }
+
+        /* Batch count line */
+        .result-card .batch-count {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 4px;
+            margin-bottom: 12px;
+        }
+
+        /* Container for grouped rejections */
+        .result-card .batch-groups {
+            margin-top: 6px;
+            text-align: left;
+        }
+
+        /* One group per distinct reason */
+        .result-card .batch-group {
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 10px;
+        }
+
+        .result-card .batch-group:last-child {
+            margin-bottom: 0;
+        }
+
+        /* The reason label — bold and prominent */
+        .result-card .batch-group-reason {
+            font-size: 13px;
+            font-weight: 700;
+            color: #991b1b;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        }
+
+        /* The codes — monospace, wrapping */
+        .result-card .batch-group-codes {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #7f1d1d;
+            line-height: 1.6;
+            word-break: break-word;
+            letter-spacing: 0.3px;
+        }
+
+        /* Count-line colour by outcome */
+        .result-card.approved .batch-count { color: #16a34a; }
+        .result-card.rejected .batch-count { color: #dc2626; }
+
+        /* ── FULLSCREEN ERROR ─────────────────────────────────── */
+        .fatal-error {
+            position: fixed;
+            inset: 0;
+            background: #0f172a;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            z-index: 10000;
+        }
+
+        .fatal-error.show { display: flex; }
+
+        .fatal-error .box {
+            max-width: 420px;
+            width: 100%;
+            background: #1e293b;
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            border: 1px solid rgba(220, 38, 38, 0.3);
+        }
+
+        .fatal-error .box i {
+            font-size: 48px;
+            color: #dc2626;
+            margin-bottom: 16px;
+        }
+
+        .fatal-error .box h2 {
+            font-size: 20px;
+            margin: 0 0 8px;
+            color: #f8fafc;
+        }
+
+        .fatal-error .box p {
+            color: #94a3b8;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0 0 20px;
+        }
+
+        .fatal-error .box button {
+            padding: 12px 24px;
+            background: #dc2626;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ── TOP BAR ──────────────────────────────────────────── -->
+    <div class="topbar">
+        <div class="session-info">
+            <div class="title" id="topbarTitle">Scanner</div>
+            <div class="meta" id="topbarMeta">Connecting…</div>
+        </div>
+        <button class="end-btn" id="endBtn" onclick="endSession()" title="End this scan session">
+            <i class="fas fa-stop-circle"></i> End
+        </button>
+    </div>
+
+    <!-- ── MODE PILL ────────────────────────────────────────── -->
+    <div class="mode-pill" id="modePill">
+        <i class="fas fa-user-check"></i>
+        <span class="label">Mode:</span>
+        <span class="value" id="modeValue">Check-in</span>
+        <span class="batch" id="batchInfo"></span>
+    </div>
+
+    <!-- ── CAMERA ───────────────────────────────────────────── -->
+    <div class="camera-wrap" id="cameraWrap">
+        <video id="qr-video" autoplay muted playsinline></video>
+        <div class="scan-frame" id="scanFrame" style="display:none;"></div>
+        <div class="camera-status" id="cameraStatus" style="display:none;">Scanning…</div>
+
+        <!-- Camera OFF state -->
+        <button class="camera-start-btn" id="startCameraBtn" onclick="startCamera()">
+            <i class="fas fa-camera"></i>
+            <span>Turn on camera</span>
+            <small>Use this only if the attendee has a QR code</small>
+        </button>
+
+        <!-- Camera ON state — small "turn off" button, top-right -->
+        <button class="camera-stop-btn" id="stopCameraBtn" onclick="stopCameraManually()" title="Turn off camera">
+            <i class="fas fa-power-off"></i> Turn off
+        </button>
+    </div>
+
+    <!-- ── MANUAL ENTRY ─────────────────────────────────────── -->
+    <div class="manual-section">
+        <div class="section-title">
+            <i class="fas fa-keyboard"></i> Manual Code Entry
+        </div>
+        <div class="manual-row">
+            <textarea
+                id="manualInput"
+                placeholder="Type a code and press Enter&#10; Or paste a list (one per line, or comma-separated)&#10;Examples: 7 · 7,8,9 · CH-3"
+                autocapitalize="characters"
+                autocomplete="off"
+                spellcheck="false"></textarea>
+            <button class="manual-submit" id="manualSubmit" onclick="submitManual()">
+                <i class="fas fa-check"></i> Validate
+            </button>
+        </div>
+        <div id="manualCounter"
+             style="display: none; margin-top: 6px; font-size: 11px; color: #64748b;">
+        </div>
+        <div class="manual-hint" id="manualHint">
+            Type or paste code(s). One per line for batches.
+        </div>
+    </div>
+
+    <!-- ── SESSION LOG ──────────────────────────────────────── -->
+    <div class="log-section">
+        <div class="log-header" id="logHeader" onclick="toggleLog()">
+            <div class="section-title">
+                <i class="fas fa-list-ul"></i> Session Log
+            </div>
+            <div class="summary">
+                <span class="ok" id="logOk">0</span>
+                <span style="color:#475569;">/</span>
+                <span class="bad" id="logBad">0</span>
+                <i class="fas fa-chevron-down chevron" id="logChevron"></i>
+            </div>
+        </div>
+        <div class="log-body" id="logBody">
+            <div class="log-empty" id="logEmpty">No scans yet this session.</div>
+        </div>
+    </div>
+
+    <!-- ── RESULT BANNER ────────────────────────────────────── -->
+    <div class="result-banner" id="resultBanner">
+        <div class="result-card" id="resultCard">
+            <div class="icon" id="resultIcon"></div>
+            <div class="title" id="resultTitle"></div>
+            <div class="name" id="resultName"></div>
+            <div class="detail" id="resultDetail"></div>
+        </div>
+    </div>
+
+    <!-- ── FATAL ERROR ──────────────────────────────────────── -->
+    <div class="fatal-error" id="fatalError">
+        <div class="box">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h2 id="fatalTitle">Scanner Error</h2>
+            <p id="fatalMessage">Something went wrong.</p>
+            <button onclick="closeAndReturn()">Close</button>
+        </div>
+    </div>
+
+    <canvas id="qr-canvas" style="display:none;"></canvas>
+
+    <!-- ── jsQR library ─────────────────────────────────────── -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+    <script>
+    // ============================================================
+    // STATE
+    // ============================================================
+    var S = {
+        // URL config
+        sessionId:  '',
+        relayBase:  '',
+        mode:       'registration',   // 'registration' | 'food'
+        maxBatch:   10,
+        eventName:  '',
+        csrfNonce:  '',    
+        ownerToken: '', 
+
+        // ── NEW: race-avoidance flags ──
+        _validating:        false,   // true while a POST is in flight
+        _nonceRetried:      false,   // true after one retry attempt
+        _nonceRejectStreak: 0,       // consecutive poll rejections
+
+        // Runtime
+        scanning:   false,
+        processing: false,
+        stream:     null,
+        rafId:      null,
+        lastCode:   null,
+        lastAt:     0,
+        lastResultAt: 0,
+
+        // Session log (in memory)
+        log:        [],
+        okCount:    0,
+        badCount:   0,
+
+        // Timers
+        resultPollTimer: null,
+        bannerTimer:     null,
+        idleTimer:       null,
+        idleTimeoutMs:   60000,   // 60 seconds
+
+        // Audio context (lazy)
+        audioCtx:   null
+    };
+
+    // ============================================================
+    // BANNER QUEUE
+    //
+    // Decouples network throughput from visual feedback.
+    // Fetches push results into this queue; a single worker
+    // drains it at a fixed pace so banners never stack.
+    // ============================================================
+    var BANNER = {
+        mode:         'individual',   // 'individual' | 'batch'
+        queue:        [],
+        draining:     false,
+        holdMs:       1400,
+        gapMs:        120,
+        batchResults: [],             // accumulates results while mode === 'batch'
+        batchHoldMs:  5000            // how long the summary banner stays
+    };
+
+    function enqueueBanner(result) {
+        if (BANNER.mode === 'batch') {
+            // Ensure we always have an object to push so the summary
+            // count stays correct even if the result was undefined.
+            if (!result) {
+                result = {
+                    success: false,
+                    message: 'No response',
+                    _inputCode: '(unknown)'
+                };
+            }
+            BANNER.batchResults.push(result);
+            return;
+        }
+
+        BANNER.queue.push(result);
+        if (!BANNER.draining) drainBannerQueue();
+    }
+
+    function drainBannerQueue() {
+        if (BANNER.queue.length === 0) {
+            BANNER.draining = false;
+            return;
+        }
+        BANNER.draining = true;
+
+        var next = BANNER.queue.shift();
+        showResultBanner(next);
+
+        // Feedback (sound + vibration) fires with the banner,
+        // so they stay in sync with what the officer sees.
+        if (next.success) {
+            beepApprove();
+            vibrate([120]);
+        } else {
+            beepReject();
+            vibrate([120, 80, 120]);
+        }
+
+        setTimeout(function() {
+            // Hide this banner before showing the next one
+            document.getElementById('resultBanner').classList.remove('show');
+            setTimeout(drainBannerQueue, BANNER.gapMs);
+        }, BANNER.holdMs);
+    }
+
+    // ============================================================
+    // TRIM REASON STRING
+    //
+    // Backend messages sometimes include the code that failed
+    // ("No registration found for code 'XYZ999'.") or a trailing
+    // period. For the batch summary, we strip both — the code is
+    // already shown separately, and periods are visual noise.
+    // ============================================================
+    function trimReason(raw) {
+        var s = String(raw || '').trim();
+
+        // Drop a trailing period
+        s = s.replace(/\.\s*$/, '');
+
+        // Drop the "for code "X"" clause
+        s = s.replace(/\s+for code\s+["']?[^"']+["']?/i, '');
+
+        // Trim again in case we left whitespace
+        s = s.trim();
+
+        // Fallback if we somehow emptied it
+        return s || 'Rejected';
+    }
+
+    // ============================================================
+    // BOOT
+    // ============================================================
+    (function boot() {
+        try {
+            var qs = new URLSearchParams(window.location.search);
+            S.sessionId = qs.get('session') || '';
+            S.relayBase = qs.get('relay') || '';
+            S.mode      = (qs.get('mode') || 'registration').toLowerCase();
+            S.maxBatch  = parseInt(qs.get('maxBatch'), 10) || 10;
+            S.eventName = qs.get('eventName') || '';
+            S.csrfNonce = qs.get('nonce') || '';
+            S.ownerToken = qs.get('owner') || '';
+        } catch (e) {
+            console.error('[boot] could not parse URL:', e);
+        }
+
+        if (!S.sessionId || !S.relayBase) {
+            showFatal(
+                'Invalid Scanner Link',
+                'This scanner must be opened from the Admin Dashboard. Please close this window and try again from the dashboard.'
+            );
+            return;
+        }
+
+        if (!S.csrfNonce) {
+            showFatal(
+                'Invalid Scanner Link',
+                'This scanner URL is missing its security token. Please close this window and start the scanner again from the Admin Dashboard.'
+            );
+            return;
+        }
+
+        // ── Header ──
+        document.getElementById('topbarTitle').textContent = S.eventName || 'Scanner';
+        document.getElementById('topbarMeta').textContent =
+            (S.mode === 'food' ? 'Food Service' : 'Check-in') + ' · session ' + S.sessionId.substring(0, 12);
+
+        // ── Mode pill ──
+        var pill = document.getElementById('modePill');
+        var modeValue = document.getElementById('modeValue');
+        if (S.mode === 'food') {
+            pill.classList.add('food');
+            pill.querySelector('i').className = 'fas fa-utensils';
+            modeValue.textContent = 'Food Service';
+        } else {
+            pill.classList.add('checkin');
+            modeValue.textContent = 'Check-in';
+        }
+        document.getElementById('batchInfo').textContent = 'Max ' + S.maxBatch + ' per batch';
+
+        // ── Manual hint ──
+        document.getElementById('manualHint').textContent =
+            'Type a code below, or turn on the camera. Up to ' + S.maxBatch + ' per batch.';
+
+        // ── Warn on close ──
+        window.addEventListener('beforeunload', stopCamera);
+
+        // ── Start polling for results immediately ──
+        startResultPolling();
+
+        // ── Fetch prior log (if this is a resumed session) ──
+        fetchSessionLog();
+
+        // ── Manual entry: Enter submits, Shift+Enter newline ──
+        var manualEl = document.getElementById('manualInput');
+
+        manualEl.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+
+            // Shift+Enter → let the default happen (newline)
+            if (e.shiftKey) return;
+
+            // Plain Enter → submit
+            e.preventDefault();
+            submitManual();
+        });
+
+        // ── Live counter for batches ─────────────────────────
+        manualEl.addEventListener('input', function() {
+            var counter = document.getElementById('manualCounter');
+            if (!counter) return;
+
+            var raw = manualEl.value || '';
+            if (!raw.trim()) {
+                counter.style.display = 'none';
+                return;
+            }
+
+            var count = raw
+                .split(/[\n,;]+/)
+                .map(function(s) { return s.trim(); })
+                .filter(function(s) { return s.length > 0; })
+                .length;
+
+            if (count <= 1) {
+                counter.style.display = 'none';
+                return;
+            }
+
+            counter.style.display = 'block';
+
+            if (count > S.maxBatch) {
+                counter.style.color = '#dc2626';
+                counter.textContent = 'Too many: ' + count + ' (max ' + S.maxBatch + ')';
+            } else {
+                counter.style.color = '#64748b';
+                counter.textContent = count + ' code' + (count === 1 ? '' : 's') + ' queued';
+            }
+        });
+
+        // ── Focus the input on load ──────────────────────────
+        manualEl.focus();
+    })();
+
+    // ============================================================
+    // TOAST (lightweight, non-blocking)
+    // ============================================================
+    var _toastTimeout = null;
+
+    function showToast(message, kind) {
+        kind = kind || 'info';
+
+        var t = document.getElementById('scannerToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'scannerToast';
+            t.style.cssText = [
+                'position:fixed',
+                'top:14px',
+                'left:50%',
+                'transform:translateX(-50%) translateY(-100px)',
+                'padding:10px 20px',
+                'border-radius:9999px',
+                'font-size:13px',
+                'font-weight:600',
+                'color:#ffffff',
+                'z-index:10001',
+                'transition:transform 0.25s ease, opacity 0.25s ease',
+                'opacity:0',
+                'max-width:calc(100vw - 28px)',
+                'text-align:center',
+                'pointer-events:none',
+                'box-shadow:0 10px 30px rgba(0,0,0,0.3)'
+            ].join(';');
+            document.body.appendChild(t);
+        }
+
+        var bg = {
+            success: '#16a34a',
+            error:   '#dc2626',
+            warning: '#f59e0b',
+            info:    '#2563eb'
+        }[kind] || '#2563eb';
+
+        t.style.background = bg;
+        t.textContent = message;
+
+        requestAnimationFrame(function() {
+            t.style.transform = 'translateX(-50%) translateY(0)';
+            t.style.opacity = '1';
+        });
+
+        if (_toastTimeout) clearTimeout(_toastTimeout);
+        _toastTimeout = setTimeout(function() {
+            t.style.transform = 'translateX(-50%) translateY(-100px)';
+            t.style.opacity = '0';
+        }, 3000);
+    }
+
+    // ============================================================
+    // IDLE AUTO-OFF
+    // Turn the camera off after 60s of no scan, to save battery
+    // when the officer has walked away or is typing codes instead.
+    // ============================================================
+    function resetIdleTimer() {
+        if (S.idleTimer) {
+            clearTimeout(S.idleTimer);
+            S.idleTimer = null;
+        }
+
+        // Only arm if the camera is currently on
+        if (!S.scanning) return;
+
+        S.idleTimer = setTimeout(function() {
+            if (!S.scanning) return;   // already off
+            stopCamera({ auto: true });
+        }, S.idleTimeoutMs);
+    }
+
+    function clearIdleTimer() {
+        if (S.idleTimer) {
+            clearTimeout(S.idleTimer);
+            S.idleTimer = null;
+        }
+    }
+
+    // ============================================================
+    // FATAL ERROR
+    // ============================================================
+    function showFatal(title, message) {
+        document.getElementById('fatalTitle').textContent = title || 'Scanner Error';
+        document.getElementById('fatalMessage').textContent = message || 'Something went wrong.';
+        document.getElementById('fatalError').classList.add('show');
+
+        // Stop everything
+        stopCamera();
+        stopResultPolling();
+    }
+
+    function closeAndReturn() {
+        // Try to close the window. If it fails, at least hide the error.
+        try { window.close(); } catch (e) {}
+        try { window.opener && window.opener.focus(); } catch (e) {}
+    }
+
+    // ============================================================
+    // CAMERA
+    // ============================================================
+    async function startCamera() {
+        if (S.scanning) return;
+
+        var btn = document.getElementById('startCameraBtn');
+        var status = document.getElementById('cameraStatus');
+        var wrap = document.getElementById('cameraWrap');
+
+        try {
+            status.style.display = 'block';
+            status.textContent = 'Requesting camera permission…';
+
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('Camera API not available in this browser.');
+            }
+
+            var stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: 'environment' },
+                    width:  { ideal: 1280 },
+                    height: { ideal: 720 }
+                },
+                audio: false
+            });
+
+            S.stream = stream;
+            var video = document.getElementById('qr-video');
+            video.srcObject = stream;
+            await video.play();
+
+            S.scanning = true;
+            S.processing = false;
+
+            btn.style.display = 'none';
+            document.getElementById('scanFrame').style.display = 'block';
+            wrap.classList.add('camera-on');
+            status.textContent = 'Scanning…';
+
+            S.rafId = requestAnimationFrame(scanLoop);
+
+            // Start the idle countdown
+            resetIdleTimer();
+
+        } catch (err) {
+            console.error('[camera] error:', err);
+            status.textContent = friendlyCameraError(err);
+            btn.querySelector('span').textContent = 'Retry camera';
+            btn.querySelector('small').textContent = friendlyCameraError(err);
+        }
+    }
+
+    function stopCamera(opts) {
+        opts = opts || {};
+        var wasScanning = S.scanning;
+
+        S.scanning = false;
+        S.processing = false;
+
+        clearIdleTimer();
+
+        if (S.rafId) {
+            cancelAnimationFrame(S.rafId);
+            S.rafId = null;
+        }
+
+        if (S.stream) {
+            S.stream.getTracks().forEach(function(t) { try { t.stop(); } catch (e) {} });
+            S.stream = null;
+        }
+
+        var video = document.getElementById('qr-video');
+        if (video) video.srcObject = null;
+
+        // Restore UI to the "camera off" state
+        var btn = document.getElementById('startCameraBtn');
+        var wrap = document.getElementById('cameraWrap');
+        var status = document.getElementById('cameraStatus');
+        var scanFrame = document.getElementById('scanFrame');
+
+        if (btn) {
+            btn.style.display = 'flex';
+            btn.querySelector('span').textContent = 'Turn on camera';
+            btn.querySelector('small').textContent = 'Use this only if the attendee has a QR code';
+        }
+        if (scanFrame) scanFrame.style.display = 'none';
+        if (status) status.style.display = 'none';
+        if (wrap) wrap.classList.remove('camera-on');
+
+        // If auto-turned-off, tell the officer why
+        if (opts.auto && wasScanning) {
+            showToast('Camera turned off after 60 seconds of inactivity.', 'info');
+        }
+    }
+
+    function stopCameraManually() {
+        stopCamera({ auto: false });
+    }
+
+    function friendlyCameraError(err) {
+        switch (err.name) {
+            case 'NotAllowedError':    return 'Camera permission denied. Enable it in your browser settings.';
+            case 'NotFoundError':      return 'No camera found on this device.';
+            case 'NotReadableError':   return 'Camera is in use by another app. Close it and retry.';
+            case 'OverconstrainedError': return 'Camera configuration not available.';
+            case 'SecurityError':      return 'Camera blocked by browser security.';
+            default:                   return 'Camera error: ' + (err.message || 'unknown');
+        }
+    }
+
+    function scanLoop() {
+        if (!S.scanning) return;
+
+        var video = document.getElementById('qr-video');
+        var canvas = document.getElementById('qr-canvas');
+        var ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        if (video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA &&
+            video.videoWidth > 0 && video.videoHeight > 0) {
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            var code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+            });
+
+            if (code && code.data && !S.processing) {
+                handleCameraScan(code.data);
+            }
+        }
+
+        S.rafId = requestAnimationFrame(scanLoop);
+    }
+
+    function handleCameraScan(code) {
+        var now = Date.now();
+        if (code === S.lastCode && (now - S.lastAt) < 2500) return;
+        S.lastCode = code;
+        S.lastAt = now;
+        S.processing = true;
+
+        // Officer is active — reset the idle countdown
+        resetIdleTimer();
+
+        // Brief visual acknowledgement
+        document.getElementById('cameraStatus').textContent = 'Processing…';
+
+        // Single-round-trip validation. Fallback to relay if it fails.
+        validateDirect(code, 'camera').finally(function() {
+            // Keep the cooldown so we don't double-fire the same QR
+            setTimeout(function() {
+                S.processing = false;
+                if (S.scanning) {
+                    document.getElementById('cameraStatus').textContent = 'Scanning…';
+                }
+            }, 900);
+        });
+    }
+
+    // ============================================================
+    // MANUAL ENTRY
+    // ============================================================
+    function submitManual() {
+        var el = document.getElementById('manualInput');
+        if (!el) return;
+    
+        var raw = (el.value || '').trim();
+        if (!raw) {
+            flashManualHint('Enter a code first.', 'warn');
+            el.focus();
+            return;
+        }
+    
+        // Split on newlines, commas, semicolons.
+        var codes = raw
+            .split(/[\n,;]+/)
+            .map(function(s) { return s.trim().toUpperCase(); })
+            .filter(function(s) { return s.length > 0; });
+    
+        if (codes.length === 0) {
+            flashManualHint('Enter a code first.', 'warn');
+            el.focus();
+            return;
+        }
+    
+        if (codes.length > S.maxBatch) {
+            flashManualHint('Too many codes (' + codes.length + '). Max is ' + S.maxBatch + '.', 'warn');
+            return;
+        }
+    
+        // ── Flush any in-flight banner so the batch starts clean ──
+        BANNER.queue.length = 0;
+        document.getElementById('resultBanner').classList.remove('show');
+    
+        // ── Clear IMMEDIATELY so officer can type the next
+        //    code while the current one validates. ──
+        el.value = '';
+        el.focus();
+    
+        // ── Hide the counter (it will reappear on next input) ──
+        var counter = document.getElementById('manualCounter');
+        if (counter) counter.style.display = 'none';
+    
+        // ── Single code ───────────────────────────────────────
+        if (codes.length === 1) {
+            BANNER.mode = 'individual';
+            BANNER.batchResults = [];
+    
+            flashManualHint('Validating ' + codes[0] + '…', 'ok');
+            validateDirect(codes[0], 'manual').then(function() {
+                flashManualHint('Ready for next code.', 'ok');
+            });
+            return;
+        }
+    
+    // ── Batch — chunked validation, suppress per-code banners ──
+    BANNER.mode = 'batch';
+    BANNER.batchResults = [];
+
+    var CHUNK_SIZE = 4;
+    var processed = 0;
+    var total = codes.length;
+
+    function updateProgress() {
+        var hint = document.getElementById('manualHint');
+        hint.textContent = 'Validating… (' + processed + ' / ' + total + ')';
+        hint.style.color = '#4ade80';
+    }
+
+    updateProgress();
+
+    function finishBatch() {
+        flashManualHint('Batch complete (' + total + ' codes).', 'ok');
+
+        if (BANNER.batchResults.length > 0) {
+            showBatchSummary(BANNER.batchResults);
+        }
+
+        // Reset for the next scan
+        BANNER.mode = 'individual';
+        BANNER.batchResults = [];
+
+        el.focus();
+    }
+
+    function sendChunk(chunkCodes, retried) {
+        return validateBatchChunk(chunkCodes).then(
+            function(results) {
+                // Merge chunk results into the batch accumulator.
+                // Each result already has _inputCode stamped.
+                results.forEach(function(r) {
+                    if (!r) r = { success: false, message: 'No response.' };
+                    BANNER.batchResults.push(r);
+                });
+
+                processed += chunkCodes.length;
+                updateProgress();
+            },
+            function(err) {
+                // Chunk failed. Retry once if we haven't already.
+                if (!retried) {
+                    console.warn('[batch] chunk failed, retrying once:', err);
+                    return sendChunk(chunkCodes, true);
+                }
+
+                // Give up. Record each code in the chunk as a
+                // rejection with a clear reason.
+                console.error('[batch] chunk failed permanently:', err);
+                chunkCodes.forEach(function(c) {
+                    BANNER.batchResults.push({
+                        success: false,
+                        message: 'Network error',
+                        _inputCode: c
+                    });
+                });
+                processed += chunkCodes.length;
+                updateProgress();
+            }
+        );
+    }
+
+    function nextChunk() {
+        if (processed >= total) {
+            finishBatch();
+            return;
+        }
+        var slice = codes.slice(processed, processed + CHUNK_SIZE);
+        sendChunk(slice, false).then(nextChunk, nextChunk);
+    }
+
+    nextChunk();
+}    
+    
+    function flashManualHint(text, kind) {
+        var hint = document.getElementById('manualHint');
+        var original = 'Type a code below, or turn on the camera. Up to ' + S.maxBatch + ' per batch.';
+        hint.textContent = text;
+        hint.style.color = kind === 'ok' ? '#4ade80' : '#fbbf24';
+        setTimeout(function() {
+            hint.textContent = original;
+            hint.style.color = '';
+        }, 2200);
+    }
+        
+    // ============================================================
+    // RELAY PUSH (camera + manual)
+    // ============================================================
+    function pushToRelay(params) {
+        var url = S.relayBase + '?page=scanner-relay' +
+                  '&session=' + encodeURIComponent(S.sessionId) +
+                  '&nonce=' + encodeURIComponent(S.csrfNonce);
+
+        if (params.code) {
+            url += '&code=' + encodeURIComponent(params.code);
+        }
+        if (params.manual) {
+            url += '&manual=' + encodeURIComponent(params.manual);
+        }
+
+        // Fire and forget — no need to read the response.
+        // We use `no-cors` because we only care about the
+        // request reaching the server, not about the reply.
+        // The nonce rotation is picked up via the next
+        // poll_result or poll_log call.
+        fetch(url, { mode: 'no-cors', cache: 'no-store' })
+            .catch(function(err) {
+                console.warn('[relay push] failed:', err);
+            });
+    }
+
+    // ============================================================
+    // DIRECT VALIDATION — single round-trip
+    // Posts the code to the backend and returns the result inline.
+    // Fallback to relay push if the direct call fails.
+    // ============================================================
+    function validateDirect(code, source) {
+      // Pause polling while this POST is in flight. This
+      // eliminates the race where a poll fires with the old
+      // nonce just after the POST rotated it.
+      S._validating = true;
+
+      return fetch(S.relayBase, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action:  'validate',
+          code:    code,
+          mode:    S.mode,
+          session: S.sessionId,
+          nonce:   S.csrfNonce,
+          ownerToken: S.ownerToken
+        }),
+        cache: 'no-store'
+      })
+        .then(function(res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function(data) {
+          // ── Update nonce from the response ──
+          // Do this FIRST, before any checks, so the next
+          // request (whatever it is) uses the latest nonce.
+          if (data && data.csrfNonce) {
+            S.csrfNonce = data.csrfNonce;
+          }
+
+          if (!data || !data.success || !data.result) {
+            // Check for nonce rejection
+            if (data && data.result && data.result.message &&
+                data.result.message.indexOf('Invalid session credentials') !== -1) {
+
+              // Retry ONCE with the new nonce. This handles the
+              // case where a concurrent poll consumed our nonce
+              // before our POST arrived.
+              if (!S._nonceRetried) {
+                S._nonceRetried = true;
+                return fetch(S.relayBase, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                  body: JSON.stringify({
+                    action:  'validate',
+                    code:    code,
+                    mode:    S.mode,
+                    session: S.sessionId,
+                    nonce:   S.csrfNonce
+                  }),
+                  cache: 'no-store'
+                })
+                  .then(function(res) { return res.json(); })
+                  .then(function(retryData) {
+                    S._nonceRetried = false;
+                    if (retryData && retryData.csrfNonce) {
+                      S.csrfNonce = retryData.csrfNonce;
+                    }
+                    if (retryData && retryData.success && retryData.result) {
+                      handleResult(retryData.result);
+                      return retryData.result;
+                    }
+                    // Retry also failed → real problem
+                    stopCamera();
+                    stopResultPolling();
+                    showFatal(
+                      'Session Hijacked',
+                      'Someone else is using this scanner session. Please close this window and start a new scanner from the dashboard.'
+                    );
+                    throw new Error('NONCE_REJECTED');
+                  });
+              }
+
+              // Already retried once — give up
+              stopCamera();
+              stopResultPolling();
+              showFatal(
+                'Session Hijacked',
+                'Someone else is using this scanner session. Please close this window and start a new scanner from the dashboard.'
+              );
+              throw new Error('NONCE_REJECTED');
+            }
+            throw new Error('No result in response');
+          }
+
+          // ── Success ──
+          handleResult(data.result);
+          return data.result;
+        })
+        .catch(function(err) {
+          if (err && err.message === 'NONCE_REJECTED') {
+            return;   // Already handled
+          }
+
+          console.warn('[validateDirect] failed, falling back to relay:', err);
+
+          if (source === 'camera') {
+            pushToRelay({ code: code });
+          } else if (source === 'manual') {
+            pushToRelay({ manual: code });
+          }
+
+          showToast('Direct call failed — using dashboard relay.', 'warning');
+        })
+        .finally(function() {
+          // Resume polling
+          S._validating = false;
+        });
+    }
+
+        // ============================================================
+    // BATCH CHUNK VALIDATION
+    //
+    // Sends up to N codes to the backend in one POST.
+    // Returns an array of result objects, one per code,
+    // in the same order as the input array.
+    //
+    // Falls back to per-code validateDirect() if the backend
+    // doesn't yet support validate_batch. This makes deployment
+    // order irrelevant.
+    // ============================================================
+    function validateBatchChunk(codes) {
+        // Pause polling while this POST is in flight
+        S._validating = true;
+
+        return fetch(S.relayBase, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+                action:  'validate_batch',
+                codes:   codes,
+                mode:    S.mode,
+                session: S.sessionId,
+                nonce:   S.csrfNonce,
+                ownerToken: S.ownerToken
+            }),
+            cache: 'no-store'
+        })
+        .then(function(res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function(data) {
+            // Update nonce from the response first
+            if (data && data.csrfNonce) {
+                S.csrfNonce = data.csrfNonce;
+            }
+
+            // ── Success path ──
+            if (data && data.success && Array.isArray(data.results)) {
+                // Zip results back to the input codes so the caller
+                // can display the officer's typed code with each result.
+                return data.results.map(function(r, idx) {
+                    if (r && typeof r === 'object') {
+                        r._inputCode = codes[idx];
+                    }
+                    return r;
+                });
+            }
+
+            // ── Nonce rejection → retry once with the new nonce ──
+            if (data && data.result && data.result.message &&
+                data.result.message.indexOf('Invalid session credentials') !== -1) {
+
+                if (!S._nonceRetried) {
+                    S._nonceRetried = true;
+                    return fetch(S.relayBase, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({
+                            action:  'validate_batch',
+                            codes:   codes,
+                            mode:    S.mode,
+                            session: S.sessionId,
+                            nonce:   S.csrfNonce,
+                            ownerToken: S.ownerToken
+                        }),
+                        cache: 'no-store'
+                    })
+                    .then(function(res) { return res.json(); })
+                    .then(function(retryData) {
+                        S._nonceRetried = false;
+                        if (retryData && retryData.csrfNonce) {
+                            S.csrfNonce = retryData.csrfNonce;
+                        }
+                        if (retryData && retryData.success && Array.isArray(retryData.results)) {
+                            return retryData.results.map(function(r, idx) {
+                                if (r && typeof r === 'object') {
+                                    r._inputCode = codes[idx];
+                                }
+                                return r;
+                            });
+                        }
+                        throw new Error('BATCH_RETRY_FAILED');
+                    });
+                }
+
+                // Already retried once → give up
+                stopCamera();
+                stopResultPolling();
+                showFatal(
+                    'Session Hijacked',
+                    'Someone else is using this scanner session. Please close this window and start a new scanner from the dashboard.'
+                );
+                throw new Error('NONCE_REJECTED');
+            }
+
+            // ── Backend doesn't support validate_batch → fall back ──
+            // This happens if the frontend is deployed before the
+            // backend. We detect it by the shape of the response.
+            if (data && data.success === false && data.result &&
+                !data.results) {
+                console.warn('[validateBatchChunk] backend returned single-result shape; falling back to per-code.');
+
+                // Fallback: validate each code individually using
+                // the existing single-code path.
+                var fallbackResults = [];
+                var self = this;
+
+                return codes.reduce(function(promiseChain, code) {
+                    return promiseChain.then(function() {
+                        return validateDirect(code, 'manual').then(function(r) {
+                            if (!r) r = { success: false, message: 'No response.' };
+                            r._inputCode = code;
+                            fallbackResults.push(r);
+                        });
+                    });
+                }, Promise.resolve()).then(function() {
+                    return fallbackResults;
+                });
+            }
+
+            throw new Error('Unexpected response shape');
+        })
+        .catch(function(err) {
+            // If we already showed a fatal error, don't re-catch
+            if (err && err.message === 'NONCE_REJECTED') throw err;
+
+            console.warn('[validateBatchChunk] chunk failed:', err);
+            throw err;
+        })
+        .finally(function() {
+            S._validating = false;
+        });
+    }
+
+    // ============================================================
+    // RESULT POLLING
+    // ============================================================
+    function startResultPolling() {
+        stopResultPolling();
+        S.resultPollTimer = setInterval(pollForResult, 1000);
+    }
+
+    function stopResultPolling() {
+        if (S.resultPollTimer) {
+            clearInterval(S.resultPollTimer);
+            S.resultPollTimer = null;
+        }
+    }
+
+    function pollForResult() {
+        if (document.hidden) return;
+        if (!S.csrfNonce) return;
+
+        // Skip polls while a direct validation is in flight.
+        // This eliminates the race where a poll fires with a
+        // stale nonce during the POST round-trip.
+        if (S._validating) return;
+
+        var url = S.relayBase + '?page=scanner-relay' +
+                  '&session=' + encodeURIComponent(S.sessionId) +
+                  '&nonce=' + encodeURIComponent(S.csrfNonce) +
+                  '&poll_result=1';
+
+        fetch(url, { cache: 'no-store' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data) return;
+
+                // ── Nonce rejected ──
+                // Could be a race with a concurrent POST. Count
+                // consecutive rejections; only show fatal after 3.
+                if (data.ok === false && data.error === 'INVALID_NONCE') {
+                    S._nonceRejectStreak = (S._nonceRejectStreak || 0) + 1;
+
+                    if (S._nonceRejectStreak < 3) {
+                        // Transient — the next poll may succeed
+                        // because the POST will have updated our nonce.
+                        return;
+                    }
+
+                    stopResultPolling();
+                    stopCamera();
+                    showFatal(
+                        'Session Hijacked',
+                        'Someone else is using this scanner session. Please close this window and start a new scanner from the dashboard.'
+                    );
+                    return;
+                }
+
+                // Successful poll → reset the streak
+                S._nonceRejectStreak = 0;
+
+                if (data.expired || data.ended) {
+                    stopResultPolling();
+                    stopCamera();
+                    showFatal(
+                        'Session Ended',
+                        data.ended
+                            ? 'This scan session has ended. Close this window and open the scanner again from the dashboard.'
+                            : 'The scan session expired. Close this window and open the scanner again from the dashboard.'
+                    );
+                    return;
+                }
+
+                // Pick up any nonce rotation from the server
+                if (data.csrfNonce) {
+                    S.csrfNonce = data.csrfNonce;
+                }
+
+                if (data.result) {
+                    handleResult(data.result);
+                }
+            })
+            .catch(function() {
+                // Silent — network hiccups are normal
+            });
+    }
+
+    // ============================================================
+    // HANDLE RESULT
+    // ============================================================
+    function handleResult(result) {
+        // Dedupe — the same result shouldn't fire twice
+        var now = Date.now();
+        if (now - S.lastResultAt < 400) return;
+        S.lastResultAt = now;
+
+        // Push to the queue. The banner worker handles
+        // sound, vibration, and visual pacing.
+        enqueueBanner(result);
+
+        // Log the result immediately — it doesn't need to
+        // wait for the banner worker.
+        appendLogEntry(result);
+    }
+
+    function showResultBanner(result) {
+        var banner = document.getElementById('resultBanner');
+        var card = document.getElementById('resultCard');
+        var icon = document.getElementById('resultIcon');
+        var title = document.getElementById('resultTitle');
+        var name = document.getElementById('resultName');
+        var detail = document.getElementById('resultDetail');
+
+        if (result.success) {
+            card.className = 'result-card approved';
+            icon.innerHTML = '<i class="fas fa-check-circle"></i>';
+            title.textContent = 'Approved';
+        } else {
+            card.className = 'result-card rejected';
+            icon.innerHTML = '<i class="fas fa-times-circle"></i>';
+            title.textContent = 'Rejected';
+        }
+
+        name.textContent = result.name || '';
+
+        // Compose a detail line
+        var parts = [];
+        if (result.message && !result.name) parts.push(result.message);
+        if (result.mealType) parts.push(result.mealType);
+        if (result.category && result.category !== 'adult') parts.push(result.category);
+        detail.textContent = parts.join(' · ');
+
+        banner.classList.add('show');
+
+        if (S.bannerTimer) clearTimeout(S.bannerTimer);
+        S.bannerTimer = setTimeout(function() {
+            banner.classList.remove('show');
+        }, 4000);
+    }
+
+    // ============================================================
+    // BATCH SUMMARY BANNER
+    //
+    // Called once per batch, after all codes have been processed.
+    // Shows a count line and grouped rejection details.
+    // ============================================================
+    function showBatchSummary(results) {
+        var banner  = document.getElementById('resultBanner');
+        var card    = document.getElementById('resultCard');
+        var icon    = document.getElementById('resultIcon');
+        var title   = document.getElementById('resultTitle');
+        var nameEl  = document.getElementById('resultName');
+        var detail  = document.getElementById('resultDetail');
+
+        var approved = results.filter(function(r) { return r.success; }).length;
+        var rejected = results.length - approved;
+
+        // ── Card variant ──
+        var variant = 'mixed';
+        if (rejected === 0)      variant = 'approved';
+        else if (approved === 0) variant = 'rejected';
+
+        card.className = 'result-card ' + variant;
+        icon.innerHTML = '<i class="fas fa-list-check"></i>';
+        title.textContent = 'Batch Complete';
+
+        // ── Hide the unused "name" slot ──
+        nameEl.innerHTML = '';
+        nameEl.style.display = 'none';
+
+        // ── Count line ──
+        var countText = approved + ' approved';
+        if (rejected > 0) countText += ' · ' + rejected + ' rejected';
+
+        // ── Build rejection groups ──
+        var groups = [];
+        var groupIndex = {};
+
+        results.forEach(function(r) {
+            if (r.success) return;
+
+            var reason = trimReason(r.message);
+            var code = r._inputCode || '(unknown)';
+
+            if (groupIndex[reason] === undefined) {
+                groupIndex[reason] = groups.length;
+                groups.push({ reason: reason, codes: [code] });
+            } else {
+                groups[groupIndex[reason]].codes.push(code);
+            }
+        });
+
+        // ── Compose the HTML ──
+        var html = '';
+        html += '<div class="batch-count">' + escapeHtml(countText) + '</div>';
+
+        if (groups.length > 0) {
+            html += '<div class="batch-groups">';
+            groups.forEach(function(g) {
+                html +=
+                    '<div class="batch-group">' +
+                        '<div class="batch-group-reason">' +
+                            escapeHtml(g.reason) +
+                        '</div>' +
+                        '<div class="batch-group-codes">' +
+                            escapeHtml(g.codes.join(', ')) +
+                        '</div>' +
+                    '</div>';
+            });
+            html += '</div>';
+        }
+
+        detail.innerHTML = html;
+
+        // ── Sound cue ──
+        if (variant === 'approved') {
+            beepApprove();
+            vibrate([120]);
+        } else if (variant === 'rejected') {
+            beepReject();
+            vibrate([120, 80, 120]);
+        } else {
+            beepApprove();
+            setTimeout(beepReject, 180);
+            vibrate([80, 60, 80]);
+        }
+
+        banner.classList.add('show');
+
+        if (S.bannerTimer) clearTimeout(S.bannerTimer);
+        S.bannerTimer = setTimeout(function() {
+            banner.classList.remove('show');
+        }, BANNER.batchHoldMs);
+    }
+
+    function appendLogEntry(result) {
+        var entry = {
+            success: !!result.success,
+            name:    result.name || '(unknown)',
+            message: result.message || '',
+            mealType: result.mealType || '',
+            category: result.category || '',
+            at:      new Date().toISOString()
+        };
+
+        S.log.unshift(entry);
+        if (S.log.length > 100) S.log.length = 100;
+
+        if (result.success) S.okCount++; else S.badCount++;
+
+        renderLog();
+    }
+
+    // ============================================================
+    // SESSION LOG
+    // ============================================================
+    function fetchSessionLog() {
+        if (!S.csrfNonce) return;
+
+        var url = S.relayBase + '?page=scanner-relay' +
+                  '&session=' + encodeURIComponent(S.sessionId) +
+                  '&nonce=' + encodeURIComponent(S.csrfNonce) +
+                  '&poll_log=1';
+
+        fetch(url, { cache: 'no-store' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data) return;
+
+                // Nonce rejected — this is a startup call, and a
+                // single rejection during startup is harmless. Do
+                // NOT show fatal here.
+                if (data.ok === false && data.error === 'INVALID_NONCE') {
+                    return;
+                }
+
+                if (data.csrfNonce) {
+                    S.csrfNonce = data.csrfNonce;
+                }
+
+                if (!data.ok || !Array.isArray(data.log)) return;
+
+                // ... rest of function unchanged
+                data.log.forEach(function(row) {
+                    S.log.push({
+                        success: !!row.success,
+                        name:    row.name || '(unknown)',
+                        message: row.message || '',
+                        mealType: '',
+                        category: '',
+                        at:      row.timestamp || ''
+                    });
+                    if (row.success) S.okCount++; else S.badCount++;
+                });
+
+                S.log.reverse();
+                renderLog();
+
+                if (S.log.length > 0) {
+                    document.getElementById('logHeader').classList.add('open');
+                    document.getElementById('logBody').classList.add('open');
+                }
+            })
+            .catch(function(err) {
+                console.warn('[log] fetch failed:', err);
+            });
+    }
+
+    function renderLog() {
+        var body = document.getElementById('logBody');
+        var empty = document.getElementById('logEmpty');
+        var okEl = document.getElementById('logOk');
+        var badEl = document.getElementById('logBad');
+
+        okEl.textContent = S.okCount;
+        badEl.textContent = S.badCount;
+
+        if (S.log.length === 0) {
+            body.innerHTML = '<div class="log-empty" id="logEmpty">No scans yet this session.</div>';
+            return;
+        }
+
+        var html = '';
+        S.log.forEach(function(e) {
+            var cls = e.success ? 'ok' : 'bad';
+            var iconCls = e.success ? 'fa-check-circle' : 'fa-times-circle';
+            var reasonParts = [];
+            if (e.mealType) reasonParts.push(e.mealType);
+            if (e.message) reasonParts.push(e.message);
+            var reason = reasonParts.join(' · ');
+
+            html +=
+                '<div class="log-entry ' + cls + '">' +
+                    '<div class="icon"><i class="fas ' + iconCls + '"></i></div>' +
+                    '<div class="content">' +
+                        '<div class="name">' + escapeHtml(e.name) + '</div>' +
+                        (reason ? '<div class="reason">' + escapeHtml(reason) + '</div>' : '') +
+                    '</div>' +
+                    '<div class="time">' + escapeHtml(fmtTime(e.at)) + '</div>' +
+                '</div>';
+        });
+        body.innerHTML = html;
+    }
+
+    function toggleLog() {
+        var header = document.getElementById('logHeader');
+        var body = document.getElementById('logBody');
+        header.classList.toggle('open');
+        body.classList.toggle('open');
+    }
+
+    function fmtTime(iso) {
+        if (!iso) return '';
+        try {
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            var h = ('0' + d.getHours()).slice(-2);
+            var m = ('0' + d.getMinutes()).slice(-2);
+            return h + ':' + m;
+        } catch (e) { return ''; }
+    }
+
+    // ============================================================
+    // SOUND FEEDBACK (Web Audio — no files needed)
+    // ============================================================
+    function getAudioContext() {
+        if (S.audioCtx) return S.audioCtx;
+        try {
+            var AC = window.AudioContext || window.webkitAudioContext;
+            if (!AC) return null;
+            S.audioCtx = new AC();
+        } catch (e) {
+            return null;
+        }
+        return S.audioCtx;
+    }
+
+    function beepApprove() {
+        var ctx = getAudioContext();
+        if (!ctx) return;
+        try {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.26);
+        } catch (e) { /* ignore */ }
+    }
+
+    function beepReject() {
+        var ctx = getAudioContext();
+        if (!ctx) return;
+        try {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(220, ctx.currentTime);
+            osc.frequency.setValueAtTime(160, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.36);
+        } catch (e) { /* ignore */ }
+    }
+
+    function vibrate(pattern) {
+        try {
+            if (navigator.vibrate) navigator.vibrate(pattern);
+        } catch (e) { /* ignore */ }
+    }
+
+    // ============================================================
+    // END SESSION
+    // ============================================================
+    function endSession() {
+        // Stop everything on the client
+        stopCamera();
+        stopResultPolling();
+
+        // Tell the backend the session is over
+        var url = S.relayBase + '?page=scanner-relay' +
+                  '&session=' + encodeURIComponent(S.sessionId) +
+                  '&nonce=' + encodeURIComponent(S.csrfNonce) +
+                  '&end_session=1';
+
+        fetch(url, { mode: 'no-cors', cache: 'no-store' })
+            .catch(function() { /* ignore */ })
+            .finally(function() {
+                // Return to the dashboard
+                try {
+                    if (window.opener && !window.opener.closed) {
+                        window.opener.focus();
+                    }
+                } catch (e) {}
+                try {
+                    window.close();
+                } catch (e) {
+                    // If the window can't close itself, show a message
+                    showFatal(
+                        'Session Ended',
+                        'You can now close this window and return to the dashboard.'
+                    );
+                }
+            });
+    }
+
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        var div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+    </script>
+
+</body>
+</html>
