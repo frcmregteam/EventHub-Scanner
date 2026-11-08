@@ -507,6 +507,27 @@
             font-size: 12px;
             color: var(--text-muted);
         }
+        .log-search-container {
+            padding: 10px 0 0 0;
+            display: none; 
+        }
+        .log-search-container.open {
+            display: block;
+        }
+        .log-search-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-surface-muted);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 13px;
+            outline: none;
+        }
+        .log-search-input:focus {
+            border-color: var(--primary);
+        }
 
         /* ── RESULT BANNER ────────────────────────────────────── */
         .result-banner {
@@ -771,11 +792,17 @@
             </div>
         </div>
         
+        <!-- NEW: Search Bar -->
+        <div class="log-search-container" id="logSearchContainer">
+            <input type="text" id="logSearchInput" class="log-search-input" 
+                   placeholder="Search by name or reason..." oninput="renderLog()">
+        </div>
+
         <div class="log-body" id="logBody">
             <!-- Entries go here -->
         </div>
 
-        <!-- NEW: Prev / Next Pagination -->
+        <!-- Prev / Next Pagination -->
         <div class="log-pagination" id="logPagination">
             <button class="log-page-btn" id="btnPrevPage" onclick="changeLogPage(-1)" disabled>
                 <i class="fas fa-chevron-left"></i> Prev
@@ -2021,6 +2048,10 @@
             if (result.success) S.okCount++; else S.badCount++;
         });
 
+        // Clear search and jump to page 1 so they see the new scan immediately
+        var searchInput = document.getElementById('logSearchInput');
+        if (searchInput) searchInput.value = '';
+        
         // Jump to page 1 so the officer sees the brand new scan
         S.logPage = 1; 
 
@@ -2090,6 +2121,7 @@
         var btnPrev = document.getElementById('btnPrevPage');
         var btnNext = document.getElementById('btnNextPage');
         var pageInfo = document.getElementById('logPageInfo');
+        var searchInput = document.getElementById('logSearchInput');
 
         okEl.textContent = S.okCount;
         badEl.textContent = S.badCount;
@@ -2102,14 +2134,35 @@
             return;
         }
 
-        // Calculate pagination
-        var totalPages = Math.ceil(S.log.length / S.logPageSize);
+        // Filter based on search
+        var searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        var filteredLog = S.log;
+
+        if (searchTerm) {
+            filteredLog = S.log.filter(function(e) {
+                var name = String(e.name || '').toLowerCase();
+                var message = String(e.message || '').toLowerCase();
+                var meal = String(e.mealType || '').toLowerCase();
+                return name.indexOf(searchTerm) !== -1 || message.indexOf(searchTerm) !== -1 || meal.indexOf(searchTerm) !== -1;
+            });
+        }
+
+        if (filteredLog.length === 0) {
+            body.innerHTML = '<div class="log-empty">No results match your search.</div>';
+            btnPrev.disabled = true;
+            btnNext.disabled = true;
+            pageInfo.textContent = 'No results';
+            return;
+        }
+
+        // Calculate pagination based on FILTERED results
+        var totalPages = Math.ceil(filteredLog.length / S.logPageSize);
         if (S.logPage > totalPages) S.logPage = totalPages;
         if (S.logPage < 1) S.logPage = 1;
 
         var startIdx = (S.logPage - 1) * S.logPageSize;
         var endIdx = startIdx + S.logPageSize;
-        var pageItems = S.log.slice(startIdx, endIdx);
+        var pageItems = filteredLog.slice(startIdx, endIdx);
 
         // Render items
         var html = '';
@@ -2143,10 +2196,12 @@
         var header = document.getElementById('logHeader');
         var body = document.getElementById('logBody');
         var pagination = document.getElementById('logPagination');
+        var searchContainer = document.getElementById('logSearchContainer');
         
         header.classList.toggle('open');
         body.classList.toggle('open');
         pagination.classList.toggle('open');
+        searchContainer.classList.toggle('open');
     }
 
     function changeLogPage(delta) {
