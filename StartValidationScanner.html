@@ -1320,7 +1320,11 @@
         flashManualHint('Batch complete (' + total + ' codes).', 'ok');
 
         if (BANNER.batchResults.length > 0) {
+            // 1. Show the summary banner
             showBatchSummary(BANNER.batchResults);
+            
+            // 2. ADD THE RESULTS TO THE SESSION LOG
+            appendLogEntry(BANNER.batchResults);
         }
 
         // Reset for the next scan
@@ -1899,21 +1903,31 @@
         }, BANNER.batchHoldMs);
     }
 
-    function appendLogEntry(result) {
-        var entry = {
-            success: !!result.success,
-            name:    result.name || '(unknown)',
-            message: result.message || '',
-            mealType: result.mealType || '',
-            category: result.category || '',
-            at:      new Date().toISOString()
-        };
+    function appendLogEntry(results) {
+        // If it's a single object, wrap it in an array
+        if (!Array.isArray(results)) {
+            results = [results];
+        }
 
-        S.log.unshift(entry);
-        if (S.log.length > 100) S.log.length = 100;
+        results.forEach(function(result) {
+            var entry = {
+                success: !!result.success,
+                name:    result.name || result._inputCode || '(unknown)',
+                message: result.message || '',
+                mealType: result.mealType || '',
+                category: result.category || '',
+                at:      new Date().toISOString()
+            };
 
-        if (result.success) S.okCount++; else S.badCount++;
+            // Add to the top of the log
+            S.log.unshift(entry);
+            if (S.log.length > 100) S.log.length = 100;
 
+            // Update the counters
+            if (result.success) S.okCount++; else S.badCount++;
+        });
+
+        // Re-render the UI
         renderLog();
     }
 
